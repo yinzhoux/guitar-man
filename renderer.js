@@ -106,19 +106,38 @@ function openSettingsTab(){
   iconLibrary.classList.remove('active'); iconSettings.classList.add('active');
   // 绑定主题
   view.querySelectorAll("input[name='themeSel']").forEach(r=> r.addEventListener('change', ()=> applyTheme(r.value)) );
-  // 背景图片逻辑
-  let pendingImg = null;
+
+  // ----- 背景图片逻辑 (已修正)-----
+  let pendingImg = null; // 将存储原始路径，例如 C:\path\to\image.jpg
   const pathEl = view.querySelector('#setBgPath');
   const previewEl = view.querySelector('#setBgPreview');
+
   view.querySelector("[data-bg-act='choose']").addEventListener('click', async ()=> {
     const files = await window.api.chooseImages();
-    if(files && files.length){ pendingImg = files[0]; pathEl.textContent = pendingImg; previewEl.style.backgroundImage = `url('file://${pendingImg}')`; }
+    if(files && files.length){
+      pendingImg = files[0];
+      pathEl.textContent = pendingImg;
+      // 【修复】在用于CSS之前，将路径中的反斜杠替换为正斜杠
+      const cssPath = pendingImg.replace(/\\/g, '/');
+      previewEl.style.backgroundImage = `url('file://${cssPath}')`;
+    }
   });
+
   view.querySelector("[data-bg-act='apply']").addEventListener('click', ()=> {
-    if(!pendingImg) return; document.body.style.backgroundImage = `url('file://${pendingImg}')`; document.body.style.backgroundSize='cover'; document.body.style.backgroundRepeat='no-repeat'; document.body.style.backgroundPosition='center center';
+    if(!pendingImg) return;
+    // 【修复】在用于CSS之前，将路径中的反斜杠替换为正斜杠
+    const cssPath = pendingImg.replace(/\\/g, '/');
+    document.body.style.backgroundImage = `url('file://${cssPath}')`;
+    document.body.style.backgroundSize='cover';
+    document.body.style.backgroundRepeat='no-repeat';
+    document.body.style.backgroundPosition='center center';
   });
+
   view.querySelector("[data-bg-act='clear']").addEventListener('click', ()=> {
-    pendingImg=null; pathEl.textContent=''; previewEl.style.backgroundImage='none'; document.body.style.backgroundImage='none';
+    pendingImg=null;
+    pathEl.textContent='';
+    previewEl.style.backgroundImage='none';
+    document.body.style.backgroundImage='none';
   });
 }
 iconSettings?.addEventListener('click', openSettingsTab);
