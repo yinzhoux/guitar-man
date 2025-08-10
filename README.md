@@ -8,10 +8,15 @@
 ```bash
 yarn install
 ```
-3. start
+3. start without build
 ```bash
 yarn start
 ```
+4. build
+```bash
+yarn dist
+```
+生成可执行文件在`dist/`文件夹下。
 
 ## Appendix
 1. 软件会在程序运行目录创建文件夹`TabTamer/Library`存放相关文件。
