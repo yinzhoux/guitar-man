@@ -4,7 +4,8 @@ const fs = require('fs');
 let dbWrapper;
 const { initDb, insertTab, updateTab, getAllTabs, deleteTabById } = require('./database');
 
-const LIB_ROOT = path.join(app.getPath('documents'), 'TabTamer', 'Library');
+// 修改：库目录改为当前运行目录下 TabTamer
+const LIB_ROOT = path.join(process.cwd(), 'TabTamer', 'Library');
 
 function ensureLib() {
   if (!fs.existsSync(LIB_ROOT)) fs.mkdirSync(LIB_ROOT, { recursive: true });
