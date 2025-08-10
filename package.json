@@ -1,15 +1,50 @@
 {
-  "name": "photo-man",
+  "name": "guitar-man",
+  "version": "1.0.0",
+  "description": "A manager for guitar(or anything else) tabs.",
   "packageManager": "yarn@4.9.1",
   "main": "main.js",
   "scripts": {
     "start": "ELECTRON_DISABLE_SANDBOX=1 electron .",
-    "dev": "ELECTRON_DISABLE_SANDBOX=1 electron ."
+    "dev": "ELECTRON_DISABLE_SANDBOX=1 electron .",
+    "dist": "electron-builder"
   },
   "dependencies": {
     "sql.js": "^1.13.0"
   },
   "devDependencies": {
-    "electron": "^37.2.6"
-  }
+    "electron": "^37.2.6",
+    "electron-builder": "26.0.12"
+  },
+  "build": {
+    "appId": "com.yinzhoux.guitar-man",
+    "productName": "guitar-man",
+    "directories": {
+      "output": "dist"
+    },
+    "extraResources": [
+      "node_modules/sql.js"
+    ],
+    "files": [
+      "**/*",
+      "!dist/",
+      "!node_modules/",
+      "node_modules/sql.js/**"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "author": "yinzhoux",
+  "license": "MIT"
 }
