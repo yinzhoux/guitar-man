@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>吉他谱管理</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: data:; style-src 'self' 'unsafe-inline';" />
+  <style>
+    :root {
+      --bg:#1e1e1e; --bg-alt:#252526; --panel:#2d2d30; --sidebar:#252526; --activity:#333333; --border:#3c3c3c; --accent:#0a84ff; --accent-hover:#3794ff; --text:#d4d4d4; --text-dim:#888; --danger:#d13438; --warning:#ffb900; --success:#3bb26b; --shadow:0 8px 20px rgba(0,0,0,.35);
+      --font: system-ui, "Segoe UI", Ubuntu, sans-serif;
+    }
+    * { box-sizing:border-box; }
+    html,body {height:100%; margin:0; color:var(--text); font-family:var(--font); background:var(--bg);} 
+    body { display:grid; grid-template-columns:48px 300px 1fr; grid-template-rows:40px 1fr 24px; grid-template-areas:
+      'activity command command'
+      'activity sidebar editor'
+      'activity status status'; }
+    /* Areas */
+    #activityBar { grid-area:activity; background:var(--activity); display:flex; flex-direction:column; align-items:center; padding:4px 0; gap:8px; border-right:1px solid var(--border); }
+    #activityBar button { width:40px; height:40px; background:none; border:0; color:var(--text-dim); font-size:18px; cursor:pointer; border-radius:4px; display:flex; align-items:center; justify-content:center; }
+    #activityBar button.active, #activityBar button:hover { background:var(--panel); color:var(--text); }
+
+    #commandBar { grid-area:command; background:var(--bg-alt); display:flex; align-items:center; padding:0 8px; gap:8px; border-bottom:1px solid var(--border); }
+    #commandBar .title { font-weight:600; }
+    #quickOpenInput { flex:1; background:#333; border:1px solid #444; color:var(--text); padding:4px 8px; border-radius:4px; }
+    #quickOpenInput:focus { outline:1px solid var(--accent); border-color:var(--accent); }
+
+    #sideBar { grid-area:sidebar; background:var(--sidebar); border-right:1px solid var(--border); display:flex; flex-direction:column; }
+    #filters { padding:10px 10px 4px; border-bottom:1px solid var(--border); display:flex; flex-direction:column; gap:8px; }
+    #filters input, #filters select { width:100%; background:#2a2a2d; border:1px solid #3d3d42; color:var(--text); padding:4px 6px; border-radius:4px; }
+    #filters input:focus, #filters select:focus { outline:1px solid var(--accent); }
+    #tabList { flex:1; overflow:auto; padding:8px; display:flex; flex-direction:column; gap:6px; outline:none; }
+    .tab-card { background:#2a2a2d; border:1px solid #3c3c3f; padding:8px 10px; border-radius:6px; display:flex; flex-direction:column; gap:4px; cursor:pointer; position:relative; }
+    .tab-card:hover { border-color:var(--accent); }
+    .tab-card h3 { margin:0; font-size:14px; font-weight:500; color:var(--text); }
+    .meta { font-size:11px; color:var(--text-dim); display:flex; flex-wrap:wrap; gap:4px; }
+    .tag { background:#39495a; padding:2px 6px; border-radius:12px; }
+    .actions { display:flex; gap:6px; margin-top:4px; }
+    .actions button { background:#3a3a3d; border:1px solid #454548; color:var(--text); padding:2px 6px; border-radius:4px; font-size:11px; cursor:pointer; }
+    .actions button:hover { background:#454549; }
+    .actions button.danger { background:#5a1f22; border-color:#6d2a2e; }
+    .actions button.danger:hover { background:#7d2f34; }
+
+    #editorArea { grid-area:editor; position:relative; display:flex; flex-direction:column; overflow:hidden; }
+    #tabBar { height:32px; background:var(--bg-alt); display:flex; align-items:stretch; gap:1px; overflow-x:auto; border-bottom:1px solid var(--border); }
+    .etab { display:flex; align-items:center; padding:0 12px; background:var(--panel); font-size:13px; cursor:pointer; position:relative; }
+    .etab.active { background:#1f1f23; }
+    .etab .close { margin-left:8px; font-size:14px; color:var(--text-dim); cursor:pointer; }
+    .etab .close:hover { color:var(--text); }
+    #editorViews { flex:1; position:relative; }
+    .view { position:absolute; inset:0; overflow:auto; padding:0; display:none; }
+    .view.active { display:block; }
+    .viewer-toolbar { position:sticky; top:0; background:var(--bg-alt); padding:4px 8px; display:flex; gap:4px; align-items:center; border-bottom:1px solid var(--border); z-index:10; }
+    .viewer-toolbar button { background:#3a3a3d; border:1px solid #454548; color:var(--text); padding:2px 8px; border-radius:4px; cursor:pointer; }
+    .viewer-toolbar button:hover { background:#4a4a4d; }
+    .pages { padding:12px 18px 40px; cursor:grab; }
+    .pages:active { cursor:grabbing; }
+    .pages img { width:100%; margin:0 0 18px; display:block; transition:transform 0.05s linear; }
+
+    #statusBar { grid-area:status; background:var(--bg-alt); display:flex; align-items:center; padding:0 8px; font-size:11px; gap:12px; border-top:1px solid var(--border); color:var(--text-dim); }
+
+    /* Modal (Add/Edit) */
+    .modal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:flex-start; justify-content:center; padding:60px 40px; overflow:auto; z-index:2000; }
+    .modal.show { display:flex; }
+    .modal .panel { background:var(--panel); padding:28px 32px 32px; width:720px; max-width:100%; border-radius:8px; box-shadow:var(--shadow); }
+    .modal h2 { margin:0 0 16px; font-size:18px; }
+    form .row { display:flex; gap:14px; }
+    form .row > label { flex:1; font-size:12px; display:flex; flex-direction:column; gap:4px; }
+    form input, form select, form textarea { background:#2a2a2d; border:1px solid #3d3d42; color:var(--text); padding:6px 8px; border-radius:4px; font:inherit; }
+    form input:focus, form select:focus, form textarea:focus { outline:1px solid var(--accent); }
+    textarea { resize:vertical; min-height:80px; }
+    #imagesPreview { display:flex; gap:8px; overflow-x:auto; padding:8px 0; }
+    #imagesPreview .thumb { position:relative; }
+    #imagesPreview img { height:90px; border:1px solid #555; border-radius:4px; }
+    #imagesPreview button { position:absolute; top:2px; right:2px; background:#d13438; border:none; color:#fff; font-size:12px; padding:2px 4px; cursor:pointer; }
+    menu.form-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; padding:0; }
+    menu.form-actions button { background:#3a3a3d; border:1px solid #454548; color:var(--text); padding:6px 14px; border-radius:4px; cursor:pointer; }
+    menu.form-actions button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+    menu.form-actions button.primary:hover { background:var(--accent-hover); }
+
+    /* Command Palette */
+    #commandPalette { position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:flex-start; justify-content:center; padding:10vh 24px 24px; z-index:3000; }
+    #commandPalette.show { display:flex; }
+    #cpPanel { background:var(--panel); width:640px; max-width:100%; border-radius:8px; box-shadow:var(--shadow); display:flex; flex-direction:column; }
+    #cpPanel input { background:#2b2b2e; border:1px solid #3d3d42; color:var(--text); padding:10px 12px; font-size:14px; border-radius:8px 8px 0 0; outline:none; }
+    #cpList { list-style:none; margin:0; padding:4px 0 8px; max-height:400px; overflow:auto; }
+    #cpList li { padding:6px 14px; font-size:13px; cursor:pointer; display:flex; justify-content:space-between; }
+    #cpList li.active, #cpList li:hover { background:#37373a; }
+    #cpList small { color:var(--text-dim); }
+
+    .diff input { display:none; }
+    .diff span { display:inline-block; padding:4px 8px; background:#2f2f32; border:1px solid #404044; border-radius:4px; cursor:pointer; }
+    .diff input:checked + span { background:var(--accent); border-color:var(--accent); color:#fff; }
+    .diff.l1 span{background:#243427;} .diff.l2 span{background:#2d3a25;} .diff.l3 span{background:#3a3522;} .diff.l4 span{background:#442b2b;} .diff.l5 span{background:#4b2348;}
+    .diff input:checked + span { filter:brightness(1.15); }
+    .tag-editor { min-height:36px; display:flex; align-items:center; flex-wrap:wrap; gap:4px; background:#2a2a2d; border:1px solid #3d3d42; padding:4px 6px; border-radius:4px; }
+    .tag-editor:focus-within { outline:1px solid var(--accent); }
+    .tokens { display:flex; gap:4px; flex-wrap:wrap; }
+    .token { background:#39495a; padding:2px 6px; border-radius:12px; font-size:11px; display:flex; align-items:center; gap:4px; }
+    .token button { background:none; border:none; color:#ccc; cursor:pointer; font-size:12px; padding:0 2px; }
+    #tagInput { flex:1; min-width:120px; background:transparent; border:none; color:var(--text); outline:none; font:inherit; }
+    .drop-zone { border:1px dashed #4a4a50; border-radius:6px; padding:10px; display:flex; flex-direction:column; gap:8px; }
+    .drop-zone.drag-over { border-color:var(--accent); background:#1f2933; }
+    #imagesPreview { display:flex; gap:8px; overflow-x:auto; padding:4px 0; }
+    #imagesPreview .thumb { position:relative; }
+    #imagesPreview img { height:90px; border:1px solid #555; border-radius:4px; }
+    #imagesPreview button { position:absolute; top:2px; right:2px; background:#d13438; border:none; color:#fff; font-size:12px; padding:2px 4px; cursor:pointer; }
+    .fv { color:#d13438; font-size:11px; min-height:14px; }
+
+    .ctx-menu { position:fixed; z-index:5000; background:var(--panel); border:1px solid var(--border); min-width:140px; border-radius:6px; padding:4px 0; box-shadow:var(--shadow); display:none; }
+    .ctx-menu.show { display:block; }
+    .ctx-menu button { width:100%; text-align:left; background:transparent; border:0; color:var(--text); padding:6px 14px; font:inherit; cursor:pointer; display:flex; gap:6px; align-items:center; }
+    .ctx-menu button:hover { background:#37373a; }
+    .ctx-menu button.danger { color:#ff6b6b; }
+    .tab-card { user-select:none; }
+
+    /* Edit Modal */
+    #editImagesPreview { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; max-height:220px; overflow:auto; }
+    #editImagesPreview .thumb { position:relative; }
+    #editImagesPreview .thumb img { height:120px; width:auto; max-width:180px; object-fit:cover; border:1px solid #555; border-radius:4px; }
+    #editImagesPreview .thumb button { position:absolute; top:2px; right:2px; background:#d13438; border:none; color:#fff; font-size:12px; padding:2px 4px; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div id="activityBar">
+    <button id="iconLibrary" class="active" title="库">📚</button>
+    <button id="iconTags" title="标签">🏷️</button>
+    <button id="iconStats" title="统计">📊</button>
+    <button id="iconSettings" title="设置">⚙️</button>
+  </div>
+  <div id="commandBar">
+    <div class="title">吉他谱库</div>
+    <input id="quickOpenInput" type="search" placeholder="Ctrl+P 快速打开，Ctrl+Shift+P 命令" />
+    <button id="addBtn" style="background:var(--accent); color:#fff; border:1px solid var(--accent); padding:4px 12px; border-radius:4px;">新建</button>
+  </div>
+  <aside id="sideBar">
+    <div id="filters">
+      <input id="searchInput" type="search" placeholder="过滤 标题/演奏者/标签" />
+      <select id="styleFilter"><option value="">风格</option><option>Rock</option><option>Pop</option><option>Blues</option><option>Jazz</option><option>Classical</option></select>
+      <select id="difficultyFilter"><option value="">难度</option><option>入门</option><option>简单</option><option>中等</option><option>较难</option><option>大师</option></select>
+    </div>
+    <div id="tabList" role="list" tabindex="0"></div>
+  </aside>
+  <main id="editorArea">
+    <div id="tabBar"></div>
+    <div id="editorViews"><div class="view active" id="welcomeView" style="padding:40px;">
+      <h2>欢迎</h2>
+      <p>使用 左侧 列表 选择或 <b>新建</b> 曲谱。快捷键：<code>Ctrl+P</code> 快速打开，<code>Ctrl+Shift+P</code> 命令面板。</p>
+    </div>
+    <!-- 设置页改为动态标签，不再静态放置 -->
+    </div>
+  </main>
+  <div id="statusBar"><span id="statusInfo">就绪</span><span id="statusCount"></span></div>
+  <div id="cardContextMenu" class="ctx-menu" role="menu" aria-hidden="true"></div>
+
+  <!-- Add/Edit Modal -->
+  <div id="addModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="addTitle">
+    <div class="panel">
+      <form id="addForm" autocomplete="off">
+        <h2 id="addTitle">添加新谱</h2>
+        <input type="hidden" name="id" />
+        <div class="row">
+          <label>标题*<input required name="title" /><span class="fv" data-for="title"></span></label>
+          <label>演奏者*<input required name="artist" /><span class="fv" data-for="artist"></span></label>
+        </div>
+        <div class="row">
+          <label>风格
+            <input name="style" list="styleList" placeholder="如 Rock" />
+            <datalist id="styleList">
+              <option value="Rock"/><option value="Pop"/><option value="Blues"/><option value="Jazz"/><option value="Classical"/>
+              <option value="Metal"/><option value="Folk"/><option value="Fingerstyle"/>
+            </datalist>
+          </label>
+          <label style="flex:1;">难度
+            <div id="difficultyRadios" style="display:flex; gap:6px; flex-wrap:wrap; font-size:11px;">
+              <label class="diff"><input type="radio" name="difficulty" value="" checked><span>未设</span></label>
+              <label class="diff l1"><input type="radio" name="difficulty" value="入门"><span>入门</span></label>
+              <label class="diff l2"><input type="radio" name="difficulty" value="简单"><span>简单</span></label>
+              <label class="diff l3"><input type="radio" name="difficulty" value="中等"><span>中等</span></label>
+              <label class="diff l4"><input type="radio" name="difficulty" value="较难"><span>较难</span></label>
+              <label class="diff l5"><input type="radio" name="difficulty" value="大师"><span>大师</span></label>
+            </div>
+          </label>
+        </div>
+        <!-- 标签功能已移除 -->
+        <label>备注<textarea name="notes" placeholder="可填写调弦法、Capo 等"></textarea></label>
+        <div style="margin-top:10px;">
+          <div id="imageDrop" class="drop-zone">
+            <div class="dz-in">
+              <button type="button" id="chooseImages">选择图片</button>
+              <span class="hint">或拖放图片到这里（支持多选、排序、删除）</span>
+            </div>
+            <div id="imagesPreview"></div>
+          </div>
+        </div>
+        <menu class="form-actions">
+          <div id="imageCount" style="font-size:12px;color:#888;align-self:center;">0 张图片</div>
+          <div style="flex:1"></div>
+          <button type="button" id="cancelBtn">取消</button>
+          <!-- 保存并继续按钮已移除 -->
+          <button id="saveOpenBtn" type="submit" class="primary">保存</button>
+        </menu>
+      </form>
+    </div>
+  </div>
+
+  <!-- New separate Edit Modal -->
+  <div id="editModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+    <div class="panel">
+      <form id="editForm" autocomplete="off">
+        <h2 id="editTitle">修改曲谱</h2>
+        <input type="hidden" name="id" />
+        <div class="row">
+          <label>标题*<input required name="title" /><span class="fv" data-for="edit-title"></span></label>
+          <label>演奏者*<input required name="artist" /><span class="fv" data-for="edit-artist"></span></label>
+        </div>
+        <div class="row">
+          <label>风格
+            <input name="style" list="styleList" />
+          </label>
+          <label style="flex:1;">难度
+            <div id="editDifficultyRadios" style="display:flex; gap:6px; flex-wrap:wrap; font-size:11px;">
+              <label class="diff"><input type="radio" name="difficulty" value="" checked><span>未设</span></label>
+              <label class="diff l1"><input type="radio" name="difficulty" value="入门"><span>入门</span></label>
+              <label class="diff l2"><input type="radio" name="difficulty" value="简单"><span>简单</span></label>
+              <label class="diff l3"><input type="radio" name="difficulty" value="中等"><span>中等</span></label>
+              <label class="diff l4"><input type="radio" name="difficulty" value="较难"><span>较难</span></label>
+              <label class="diff l5"><input type="radio" name="difficulty" value="大师"><span>大师</span></label>
+            </div>
+          </label>
+        </div>
+        <!-- 标签编辑已移除 -->
+        <label>备注<textarea name="notes"></textarea></label>
+        <div style="margin-top:10px;">
+          <div id="editImageDrop" class="drop-zone">
+            <div class="dz-in">
+              <button type="button" id="editChooseImages">追加图片</button>
+              <span class="hint">拖放图片 / 排序 / 删除</span>
+            </div>
+            <div id="editImagesPreview"></div>
+          </div>
+        </div>
+        <menu class="form-actions">
+          <div id="editImageCount" style="font-size:12px;color:#888;align-self:center;">0 张图片</div>
+          <div style="flex:1"></div>
+            <button type="button" id="editCancelBtn">取消</button>
+            <button id="editSaveBtn" type="submit" class="primary">保存修改</button>
+        </menu>
+      </form>
+    </div>
+  </div>
+  <div id="cardContextMenu" class="ctx-menu" role="menu" aria-hidden="true"></div>
+
+  <!-- Command Palette -->
+  <div id="commandPalette">
+    <div id="cpPanel">
+      <input id="cpInput" placeholder="输入命令或搜索..." />
+      <ul id="cpList"></ul>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

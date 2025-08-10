@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>查看吉他谱</title>
+  <style>
+    body { margin:0; font-family:system-ui,sans-serif; display:flex; flex-direction:column; height:100vh; }
+    header { background:#222; color:#fff; padding:8px 12px; display:flex; gap:12px; align-items:center; }
+    #images { flex:1; overflow:auto; padding:12px; cursor:grab; }
+    #images:active { cursor:grabbing; }
+    #images img { width:100%; margin:0 0 16px; display:block; transition:transform 0.05s linear; }
+    .toolbar button { margin-right:6px; }
+    .hint { font-size:11px; color:#aaa; margin-left:auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <div id="title"></div>
+    <div class="toolbar">
+      <button id="zoomIn">+</button>
+      <button id="zoomOut">-</button>
+      <button id="fitWidth">适应宽度</button>
+      <button id="origSize">原始尺寸</button>
+      <button id="fullBtn">全屏</button>
+    </div>
+    <div class="hint">滚轮缩放 | 拖拽平移</div>
+  </header>
+  <div id="images"></div>
+  <script src="viewer.js"></script>
+</body>
+</html>
